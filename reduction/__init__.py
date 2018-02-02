@@ -15,7 +15,8 @@ from photutils import aperture_photometry
 # from photutils import SigmaClip
 # from photutils import Background2D, MedianBackground
 
-from photutils import daofind
+from photutils import DAOStarFinder
+from astropy.stats import sigma_clipped_stats
 from astropy.stats import median_absolute_deviation as mad
 
 class psf(object):
@@ -44,15 +45,19 @@ class psf(object):
 
         return new_X, new_Y
 
-    def background(self, sky, window=100):
-        sky_mean = float(np.median(
-            self.data[int(sky[1] - window):int(sky[1] + window), int(sky[0] - window):int(sky[0] + window)]))
-        sky_size = self.data.shape
-        return np.random.poisson(sky_mean, sky_size)
 
-    def sources_field(self,sky):
-        bkg_sigma = background(self,sky)
-        sources = daofind(self.data, fwhm=4.0, threshold=3 * bkg_sigma)
+
+    def sources_field(self,sky,fwhm=4.,threshold_std=3.):
+        def background(self, sky, window=100):
+            sky_mean = float(np.median(
+                self.data[int(sky[1] - window):int(sky[1] + window), int(sky[0] - window):int(sky[0] + window)]))
+            sky_size = self.data.shape
+            return np.random.poisson(sky_mean, sky_size)
+
+        bkg_sigma = np.std(background(self,sky))
+        mean, median, std = sigma_clipped_stats(self.data, sigma=3.0, iters=5)
+        daofind = DAOStarFinder(fwhm=fwhm, threshold=threshold_std * std)
+        sources = daofind(self.data - median)
         return sources
 
     def fit(self, center, delta=10., model='gaussian',show=False):
