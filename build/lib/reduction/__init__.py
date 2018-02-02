@@ -15,6 +15,9 @@ from photutils import aperture_photometry
 # from photutils import SigmaClip
 # from photutils import Background2D, MedianBackground
 
+from photutils import daofind
+from astropy.stats import median_absolute_deviation as mad
+
 class psf(object):
 
     def __init__(self, image_path):
@@ -25,7 +28,7 @@ class psf(object):
         self.data = np.array(fits.getdata(image_path),dtype='Float64')
         self.header = fits.getheader(image_path)
 
-    def centroid(self,guess_center,delta=10.):
+    def centroid(self, guess_center, delta=10.):
         img = self.data[int(guess_center[1]-delta):int(guess_center[1]+delta),int(guess_center[0]-delta):int(guess_center[0]+delta)]
         center = np.unravel_index(np.argmax(img), img.shape)
 
@@ -39,7 +42,12 @@ class psf(object):
         else:
             new_Y = int(guess_center[1] + (center[1]-delta))
 
-        return new_X,new_Y
+        return new_X, new_Y
+
+    def sources_field(self):
+        bkg_sigma = 1.48 * mad(self.data)
+        sources = daofind(self.data, fwhm=4.0, threshold=3 * bkg_sigma)
+        return sources
 
     def fit(self, center, delta=10., model='gaussian',show=False):
      # PSF Fitting
