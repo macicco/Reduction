@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: reduction
+Version: 0.1
+Summary: Python package created to make a astronomy reduction and analysis on astronomy FITS files.
+Home-page: https://github.com/waltersmartinsf/Reduction
+Author: Walter Silva Martins Filho
+Author-email: walter@on.br
+License:  Creative Commons Attribution 4.0 International License
+Description-Content-Type: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN

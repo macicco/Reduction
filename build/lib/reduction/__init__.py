@@ -25,7 +25,7 @@ class psf(object):
         self.data = np.array(fits.getdata(image_path),dtype='Float64')
         self.header = fits.getheader(image_path)
 
-    def centroid(self, guess_center, delta=10.):
+    def centroid(self,guess_center,delta=10.):
         img = self.data[int(guess_center[1]-delta):int(guess_center[1]+delta),int(guess_center[0]-delta):int(guess_center[0]+delta)]
         center = np.unravel_index(np.argmax(img), img.shape)
 
@@ -39,7 +39,7 @@ class psf(object):
         else:
             new_Y = int(guess_center[1] + (center[1]-delta))
 
-        return new_X, new_Y
+        return new_X,new_Y
 
     def fit(self, center, delta=10., model='gaussian',show=False):
      # PSF Fitting
