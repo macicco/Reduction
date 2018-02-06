@@ -11,7 +11,8 @@ import pandas as pd
 
 from photutils import CircularAperture
 from photutils import aperture_photometry
-# from photutils import CircularAnnulus
+# from photutils import SkyAperture
+from photutils import CircularAnnulus
 # from photutils import SigmaClip
 # from photutils import Background2D, MedianBackground
 
@@ -19,7 +20,7 @@ from photutils import DAOStarFinder
 from astropy.stats import sigma_clipped_stats
 from astropy.stats import median_absolute_deviation as mad
 
-class psf(object):
+class CCD(object):
 
     def __init__(self, image_path):
         """
@@ -100,6 +101,92 @@ class psf(object):
     def fwhm(self,sigma):
         return
 
+    def background(self,sky,window=100):
+        sky_mean = float(np.median(self.data[int(sky[1]-window):int(sky[1]+window),int(sky[0]-window):int(sky[0]+window)]))
+        sky_size = self.data.shape
+        return np.random.poisson(sky_mean,sky_size)
+
+    def annulus_background(self,positions,radius=3.):
+        #Obtain the sky local background
+        annulus_apertures = CircularAnnulus(positions, r_in=radius+2., r_out=radius+4.)
+        bkg_table = aperture_photometry(self.data, annulus_apertures)
+        bkg_counts = float(bkg_table['aperture_sum'])
+        bkg_mean = bkg_counts/annulus_apertures.area()
+        bkg = np.random.poisson(bkg_mean,self.data.shape)
+        return bkg, bkg_counts, bkg_mean
+
+    def aperture(self,positions,bkg=None,radius=3.):
+
+        flux, eflux = [], []
+
+        apertures = CircularAperture(positions, r=radius)
+        
+        if bkg is None:
+            bkg, bkg_counts, bkg_mean = self.annulus_background(positions,radius=radius)
+
+        phot_table = aperture_photometry(self.data, apertures, error=bkg)
+
+        for i in range(len(positions)):
+            flux.append(phot_table['aperture_sum'][i])
+            eflux.append(phot_table['aperture_sum_err'][i])
+
+        frames = [pd.DataFrame(flux).T, pd.DataFrame(eflux).T]
+        data_flux = pd.concat(frames,axis=1)
+        # data_flux.columns = ['flux','eflux']
+
+        return data_flux
+
+    def airmass(self):
+        if 'airmass' in self.header:
+            return float(self.header['airmass'])
+
+    def snratio(self,guess_center,radius=4.,fwhm=8.,delta=10.,ND=None,NR2=None,exp_time=None,gain=None):
+        
+        #check the centroid
+        X,Y = guess_center
+        sources = self.sources_field(sky=sky,fwhm=fwhm)
+        sources = sources.to_pandas()
+        center = sources[(sources['ycentroid'] < int(Y+delta)) & (sources['ycentroid'] > int(Y-delta)) 
+                         & (sources['xcentroid'] < int(X+delta)) & (sources['xcentroid'] > int(X-delta))]
+        positions = (float(center['xcentroid']),float(center['ycentroid']))
+        
+        bkg, bkg_counts, bkg_mean = self.annulus_background(positions,radius=radius)
+        counts = self.aperture([positions],bkg,radius=radius)
+        counts.columns = ['flux','eflux']
+        
+        #HEADER Information
+        if exp_time is None:
+            exp_time = float(self.header['EXPTIME'])
+        
+        header_list = []
+        for i in self.header.keys():
+            header_list.append(i)
+            
+        if gain is None:
+            matching = [s for s in header_list if "GAIN" in s]
+            gain_list = np.zeros(len(matching))
+            for i in range(len(matching)):
+                gain_list[i] = self.header[matching[i]]
+            gain = np.mean(gain_list)
+            
+        if ND is None:
+            ND = float(self.header['DARKCUR'])
+
+        if NR2 is None:
+            if 'RDNOISE' in self.header.keys():
+                NR2 =  float(self.header['RDNOISE'])
+            else:
+                matching = [s for s in header_list if "RDNOISE" in s]
+                NR2_partial = np.zeros(len(matching))
+                for i in range(len(matching)):
+                    NR2_partial[i] = float(self.header[matching[i]])
+                NR2 =  np.mean(NR2_partial)**2
+
+        n_pix = np.pi * radius**2
+        flux = float(counts['flux'])
+        SN = flux/np.sqrt(flux+(n_pix*bkg_mean)+exp_time*(1.*n_pix*ND/gain)+(1.*n_pix*NR2/gain**2))
+        return SN
+
 class photometry(object):
 
 
@@ -113,21 +200,20 @@ class photometry(object):
         sky_size = self.data.shape
         return np.random.poisson(sky_mean,sky_size)
 
-    def aperture(self,positions,sky,radius=3.,window=100):
+    def aperture(self,positions,bkg,radius=3.):
 
-        flux, eflux = np.zeros(len(positions)), np.zeros(len(positions))
+        flux, eflux = [], []
 
         apertures = CircularAperture(positions, r=radius)
-        bkg = background(self,sky,window=window)
-        phot_table = aperture_photometry(img, apertures, error=bkg)
+        phot_table = aperture_photometry(self.data, apertures, error=bkg)
 
         for i in range(len(positions)):
-            flux[i] = phot_table['aperture_sum'][i]
-            flux_err[i] = phot_table['aperture_sum_err'][i]
+            flux.append(phot_table['aperture_sum'][i])
+            eflux.append(phot_table['aperture_sum_err'][i])
 
         frames = [pd.DataFrame(flux).T, pd.DataFrame(eflux).T]
-        data_flux = pd.concat(frames)
-        data_flux.columns = ['flux','eflux']
+        data_flux = pd.concat(frames,axis=1)
+        # data_flux.columns = ['flux','eflux']
 
         return data_flux
 
