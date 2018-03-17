@@ -121,8 +121,8 @@ class CCD(object):
 
         apertures = CircularAperture(positions, r=radius)
         
-        if bkg is None:
-            bkg, bkg_counts, bkg_mean = self.annulus_background(positions,radius=radius)
+        
+        bkg, bkg_counts, bkg_mean = self.annulus_background(positions,radius=radius)
 
         phot_table = aperture_photometry(self.data, apertures, error=bkg)
 
