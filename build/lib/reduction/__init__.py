@@ -115,11 +115,15 @@ class CCD(object):
         bkg = np.random.poisson(bkg_mean,self.data.shape)
         return bkg, bkg_counts, bkg_mean
 
-    def aperture(self,positions,bkg,radius=3.):
+    def aperture(self,positions,bkg=None,radius=3.):
 
         flux, eflux = [], []
 
         apertures = CircularAperture(positions, r=radius)
+        
+        
+        bkg, bkg_counts, bkg_mean = self.annulus_background(positions,radius=radius)
+
         phot_table = aperture_photometry(self.data, apertures, error=bkg)
 
         for i in range(len(positions)):
@@ -136,7 +140,7 @@ class CCD(object):
         if 'airmass' in self.header:
             return float(self.header['airmass'])
 
-    def snratio(self,guess_center,sky,radius=4.,fwhm=8.,delta=10.,ND=None,NR2=None,exp_time=None,gain=None):
+    def snratio(self,guess_center,radius=4.,fwhm=8.,delta=10.,ND=None,NR2=None,exp_time=None,gain=None):
         
         #check the centroid
         X,Y = guess_center
