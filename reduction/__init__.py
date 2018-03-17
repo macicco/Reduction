@@ -140,7 +140,7 @@ class CCD(object):
         if 'airmass' in self.header:
             return float(self.header['airmass'])
 
-    def snratio(self,guess_center,radius=4.,fwhm=8.,delta=10.,ND=None,NR2=None,exp_time=None,gain=None):
+    def snratio(self,guess_center,sky,radius=4.,fwhm=8.,delta=10.,ND=None,NR2=None,exp_time=None,gain=None):
         
         #check the centroid
         X,Y = guess_center

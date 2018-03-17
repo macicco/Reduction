@@ -121,8 +121,8 @@ class CCD(object):
 
         apertures = CircularAperture(positions, r=radius)
         
-        
-        bkg, bkg_counts, bkg_mean = self.annulus_background(positions,radius=radius)
+        if bkg is None:
+            bkg, bkg_counts, bkg_mean = self.annulus_background(positions,radius=radius)
 
         phot_table = aperture_photometry(self.data, apertures, error=bkg)
 
@@ -140,7 +140,7 @@ class CCD(object):
         if 'airmass' in self.header:
             return float(self.header['airmass'])
 
-    def snratio(self,guess_center,radius=4.,fwhm=8.,delta=10.,ND=None,NR2=None,exp_time=None,gain=None):
+    def snratio(self,guess_center,sky,radius=4.,fwhm=8.,delta=10.,ND=None,NR2=None,exp_time=None,gain=None):
         
         #check the centroid
         X,Y = guess_center
